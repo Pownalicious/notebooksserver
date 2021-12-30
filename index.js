@@ -1,10 +1,14 @@
 const express = require("express");
 const PORT = 4000;
 const app = express();
+const cors = require("cors");
 const { Router } = require("express");
 const NoteBooks = require("./models").notebook;
 const Notes = require("./models").note;
 
+app.use(express.json());
+// enable CORS (cross origin resource sharing)
+app.use(cors());
 const router = new Router();
 
 //GET the artworks list
@@ -18,18 +22,36 @@ app.get("/notes", async (req, res) => {
   return res.status(200).send(list);
 });
 
-app.get("/notebook/:id", async (req, res, next) => {
+// create new notebook
+app.post("/notes", async (req, res) => {
+  let { title, description } = req.body;
+
+  if (!title || !description) {
+    return res.status(403).send("missing title or description");
+  }
+  // create new notebook row in db
+  const note = await Notes.create({ title, description });
+  // send newly created note back to FE.
+  return res.json(note);
+});
+
+// Delete a note
+app.delete("/notes/:notesId", async (req, res, next) => {
+  const notesId = parseInt(req.params.notesId);
+
+  if (!notesId) {
+    res.status(404).send("Note not found");
+  }
   try {
-    const notebookId = parseInt(req.params.id);
-    const noteBookWithNotes = await Notes.findByPk(notebookId, {
-      include: [Notes],
+    await Notes.destroy({
+      where: {
+        id: notesId,
+      },
     });
-    if (noteBookWithNotes) {
-      res.send(noteBookWithNotes);
-    } else {
-      res.status(404).send("Team not found");
-    }
+
+    return res.status(200).send(`note with id: ${notesId} was deleted`);
   } catch (e) {
+    console.error(e);
     next(e);
   }
 });
